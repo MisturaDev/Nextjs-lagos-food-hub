@@ -1,0 +1,104 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  donor
+  beneficiary
+  volunteer
+  admin
+}
+
+enum DonationCategory {
+  food
+  clothes
+  medical
+  other
+}
+
+enum DonationStatus {
+  listed
+  approved
+  assigned
+  picked_up
+  delivered
+}
+
+enum AssignmentStatus {
+  assigned
+  picked_up
+  delivered
+}
+
+model User {
+  id            String          @id @default(cuid())
+  name          String
+  email         String          @unique
+  password      String
+  role          UserRole
+  phone         String?
+  createdAt     DateTime        @default(now())
+  donations     Donation[]      @relation("DonorDonations")
+  assignments   Assignment[]    @relation("VolunteerAssignments")
+  statusUpdates StatusHistory[] @relation("StatusUpdatedByUser")
+}
+
+model Donation {
+  id            String           @id @default(cuid())
+  title         String
+  description   String
+  category      DonationCategory
+  quantity      Int
+  donorId       String
+  locationLGA   String
+  community     String
+  status        DonationStatus   @default(listed)
+  createdAt     DateTime         @default(now())
+  donor         User             @relation("DonorDonations", fields: [donorId], references: [id])
+  assignments   Assignment[]
+  statusHistory StatusHistory[]
+
+  @@index([donorId])
+  @@index([status])
+  @@index([locationLGA, community])
+}
+
+model Assignment {
+  id          String           @id @default(cuid())
+  donationId  String
+  volunteerId String
+  status      AssignmentStatus @default(assigned)
+  assignedAt  DateTime         @default(now())
+  donation    Donation         @relation(fields: [donationId], references: [id])
+  volunteer   User             @relation("VolunteerAssignments", fields: [volunteerId], references: [id])
+
+  @@index([donationId])
+  @@index([volunteerId])
+}
+
+model StatusHistory {
+  id            String         @id @default(cuid())
+  donationId    String
+  status        DonationStatus
+  updatedBy     String
+  timestamp     DateTime       @default(now())
+  donation      Donation       @relation(fields: [donationId], references: [id])
+  updatedByUser User           @relation("StatusUpdatedByUser", fields: [updatedBy], references: [id])
+
+  @@index([donationId])
+  @@index([updatedBy])
+}
+
+model Location {
+  id        String @id @default(cuid())
+  lga       String
+  community String
+
+  @@unique([lga, community])
+  @@index([lga])
+}
